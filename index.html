@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VALID-AI Assessment Designer</title>
+<meta name="description" content="Design AI-aware assessments with the VALID-AI framework and the AI Assessment Scale, with optional on-device AI personalization.">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main>
+  <header class="site-header">
+    <div>
+      <h1>VALID-AI Assessment Designer</h1>
+      <p class="muted">Use VALID-AI to design the task and the AI Assessment Scale (AIAS) to define how AI participates.</p>
+    </div>
+    <button class="btn ghost" id="reset" type="button">Start over</button>
+  </header>
+
+  <noscript><p class="card">This tool needs JavaScript enabled.</p></noscript>
+
+  <!-- Starting approach -->
+  <section class="card" id="start" aria-labelledby="start-heading" hidden>
+    <h2 id="start-heading">How would you like to begin?</h2>
+    <p class="muted">Quick Start fills in a sensible draft across all seven steps. You can edit every choice before building the final plan.</p>
+    <fieldset class="starter-list" id="starter-list">
+      <legend class="sr-only">Starting assessment approach</legend>
+    </fieldset>
+    <hr>
+    <div id="starter-guidance" aria-live="polite"></div>
+    <div class="row between actions">
+      <button class="btn" id="guided-start" type="button">Build from scratch</button>
+      <button class="btn primary" id="quick-start" type="button">Use this starting approach</button>
+    </div>
+  </section>
+
+  <!-- Seven-step wizard -->
+  <div id="workflow" hidden>
+    <div class="row end"><button class="btn ghost" id="change-start" type="button">Change starting approach</button></div>
+    <div class="progress-line small">
+      <strong id="progress-label">Step 1 of 7 · Verify</strong>
+      <span id="progress-percent" class="muted">14% complete</span>
+    </div>
+    <div class="progress" id="progress" role="progressbar" aria-label="VALID-AI framework progress" aria-valuemin="1" aria-valuemax="7" aria-valuenow="1">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <ol class="step-list small" id="step-list" aria-label="VALID-AI framework steps"></ol>
+    <section class="card" id="panel" aria-live="polite"></section>
+    <div class="row between actions">
+      <button class="btn" id="back" type="button">Back</button>
+      <button class="btn primary" id="next" type="button">Next: Articulate</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <section id="results" aria-labelledby="results-heading" hidden>
+    <div class="banner" id="stale-banner" hidden>
+      Your answers changed since this plan was built.
+      <button class="btn" id="rebuild" type="button">Update plan</button>
+    </div>
+
+    <div class="row between">
+      <h2 id="results-heading">Your VALID-AI assessment plan</h2>
+      <button class="btn ghost no-print" id="print" type="button">Print / save as PDF</button>
+    </div>
+    <p class="muted">Use this as a design brief. The recommendations are starting points, not substitutes for local judgment, piloting, or rubric calibration.</p>
+
+    <div class="card"><ol class="plan-list" id="plan-summary"></ol></div>
+
+    <section aria-labelledby="aias-heading">
+      <h2 id="aias-heading">AIAS alignment</h2>
+      <article class="card" id="aias-summary"></article>
+    </section>
+
+    <!-- Local AI personalization -->
+    <section class="card ai-panel no-print" aria-labelledby="ai-heading">
+      <h2 id="ai-heading">Personalize with local AI <span class="badge">optional</span></h2>
+      <p class="small">Rewrites the rubric descriptors around your own answers, drafts student-facing AI-use instructions, and checks your design for inconsistencies. The model runs on this computer; your course details are never sent anywhere.</p>
+      <div class="row ai-controls">
+        <label class="sr-only" for="ai-model">Model</label>
+        <select id="ai-model" hidden></select>
+        <button class="btn primary" id="ai-run" type="button" disabled>Personalize</button>
+      </div>
+      <p class="small muted" id="ai-status" aria-live="polite"></p>
+      <div id="ai-progress" hidden>
+        <div class="progress"><div class="progress-bar" id="ai-progress-bar"></div></div>
+        <p class="small muted" id="ai-progress-text" aria-live="polite"></p>
+      </div>
+      <div class="banner warn" id="ai-error" hidden></div>
+    </section>
+    <div id="ai-outputs"></div>
+
+    <section aria-labelledby="approaches-heading">
+      <h2 id="approaches-heading">Best-fit assessment approaches</h2>
+      <div id="approaches"></div>
+    </section>
+
+    <section aria-labelledby="safeguards-heading">
+      <h2 id="safeguards-heading">Validity and reliability safeguards</h2>
+      <ul id="safeguards"></ul>
+    </section>
+
+    <section aria-labelledby="rubric-heading">
+      <div class="row between">
+        <h2 id="rubric-heading">Draft rubric <span class="badge" id="rubric-badge" hidden>AI-personalized</span></h2>
+        <button class="btn ghost no-print" id="rubric-revert" type="button" hidden>Show template version</button>
+      </div>
+      <p id="rubric-intro"></p>
+      <div id="rubric-output"></div>
+      <p class="small muted">This is a design draft. Review the criteria, weighting, accessibility, and performance examples; then pilot and calibrate grading before high-stakes use.</p>
+    </section>
+
+    <section aria-labelledby="example-heading">
+      <h2 id="example-heading">Research-informed example</h2>
+      <label for="example-area">Interest area</label>
+      <select id="example-area"></select>
+      <article id="example" aria-live="polite"></article>
+    </section>
+
+    <details class="evidence-note">
+      <summary>How to interpret the research base</summary>
+      <p class="small">These are research-informed examples drawn from published course implementations or practice cases. Evidence quality varies. Most sources establish feasibility and disciplinary relevance, but do not establish scoring reliability across instructors or institutions. Pilot locally, align the rubric to the intended learning, and check scorer agreement before high-stakes use.</p>
+      <p class="small">AIAS descriptions follow the current <a href="https://aiassessmentscale.com/" target="_blank" rel="noopener noreferrer">AI Assessment Scale 2.1</a>. AIAS is a design aid, not evidence that a particular assessment is valid or reliably scored.</p>
+    </details>
+  </section>
+</main>
+</body>
+</html>
