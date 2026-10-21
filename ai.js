@@ -14,7 +14,7 @@ import {
   detectWebGPU, browserModels, recommendBrowserModel, detectOllama,
   createBrowserEngine, createOllamaEngine, isAbort
 } from "./llm.js";
-import { intakeTask, blanksTask, tailorTask, clipText, wordCount, TEXT_LIMITS } from "./tasks.js";
+import { intakeTask, blanksTask, tailorTask, reviewTask, variantTask, VARIANTS, clipText, wordCount, TEXT_LIMITS } from "./tasks.js";
 
 // Same key as the previous version of the site, so the model choice carries over.
 const PREFS_KEY = "valid-ai-designer-ai-prefs-v1";
@@ -798,12 +798,31 @@ function setupBlanks() {
   const tilt = $("#valid-tilt");
   const reset = $("#valid-reset-tilt");
   if (!tilt || !reset) return;
-  const button = document.createElement("button");
-  button.className = "btn valid-ai-btn valid-ai-only";
-  button.id = "valid-ai-blanks";
-  button.type = "button";
-  button.innerHTML = `${sparkle(16)}Draft the blanks`;
-  reset.before(button);
+  // The template's AI helpers get their own row under the toolbar.
+  const row = document.createElement("div");
+  row.className = "valid-ai-row valid-ai-only";
+  row.id = "valid-tilt-ai-row";
+  row.innerHTML = `
+    <span class="valid-ai-row-label">${sparkle(16)}Local AI</span>
+    <button class="btn valid-ai-btn" id="valid-ai-blanks" type="button">Draft the blanks</button>
+    <button class="btn valid-ai-btn" id="valid-ai-review" type="button">Read it like a student</button>
+    <button class="btn valid-ai-btn" id="valid-ai-variant-open" type="button" aria-expanded="false" aria-controls="valid-variant-form">Make a version…</button>
+    <div class="valid-variant-form" id="valid-variant-form" hidden>
+      <label class="form-label text-small" for="valid-variant-kind">Version
+        <select class="form-select" id="valid-variant-kind">
+          <option value="plain">Plain language</option>
+          <option value="online">Online, asynchronous</option>
+          <option value="accommodation">With an accommodation</option>
+        </select>
+      </label>
+      <label class="form-label text-small" for="valid-variant-detail" id="valid-variant-detail-label" hidden>Accommodation
+        <input class="form-control" id="valid-variant-detail" type="text" maxlength="200" placeholder="For example: a written explanation instead of a spoken defense">
+      </label>
+      <button class="btn valid-ai-btn" id="valid-ai-variant" type="button">Make it</button>
+    </div>`;
+  const toolbar = reset.closest(".viz-row")?.parentElement?.closest(".viz-row") ?? reset.closest(".viz-row");
+  toolbar.after(row);
+  const button = row.querySelector("#valid-ai-blanks");
 
   const note = document.createElement("div");
   note.className = "valid-ai-note";
@@ -879,6 +898,182 @@ function setupBlanks() {
     });
   });
   syncBlanksNote();
+}
+
+/* ---------- 4. Read it like a student ---------- */
+
+const KIND_LABELS = { unclear: "Unclear", missing: "Missing", conflict: "Contradiction", "hard to read": "Hard to read" };
+
+function sheetText() {
+  return app.tiltAsText($("#valid-tilt"));
+}
+
+// Point at the part of the template a problem is about.
+function showInTemplate(quote) {
+  const target = normalizeText(quote);
+  const block = [...$$("#valid-tilt p, #valid-tilt li, #valid-tilt h3")].find((node) => normalizeText(node.innerText).includes(target))
+    ?? [...$$("#valid-tilt p, #valid-tilt li, #valid-tilt h3")].find((node) => target.split(" ").slice(0, 4).every((w) => normalizeText(node.innerText).includes(w)));
+  if (!block) return;
+  block.scrollIntoView({ block: "center" });
+  block.classList.remove("valid-flash");
+  void block.offsetWidth;
+  block.classList.add("valid-flash");
+}
+
+const normalizeText = (value) => String(value ?? "").toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
+
+function renderReview(issues) {
+  const panel = $("#valid-tilt-review");
+  const blanks = [...new Set($$("#valid-tilt .valid-placeholder:not(.is-filled)").map((span) => span.textContent.trim()))];
+  const items = issues.map((item, i) => `
+    <li>
+      <span class="valid-review-kind">${esc(KIND_LABELS[item.kind] || item.kind)}</span>
+      <strong>${esc(item.question)}</strong>
+      ${item.quote ? `<span class="valid-review-quote">“${esc(item.quote)}” <button class="btn btn-ghost" type="button" data-show-quote="${i}">Show</button></span>` : ""}
+      <span class="valid-review-fix"><em>Fix:</em> ${esc(item.fix)}</span>
+    </li>`).join("");
+  panel.innerHTML = `
+    <div class="valid-ai-note">${sparkle(16)}<span class="valid-ai-note-text">${issues.length
+      ? `Local AI read your template as a student would and found ${issues.length} thing${issues.length === 1 ? "" : "s"} to look at. It can be wrong, so treat these as questions, not rules.`
+      : "Local AI read your template as a student would and didn’t find anything a student would get stuck on. It can miss things, so read it once yourself too."}</span>
+      <button class="btn" type="button" data-close-review>Close</button></div>
+    ${blanks.length ? `<p class="valid-review-blanks text-small"><strong>Still blank:</strong> ${blanks.map(esc).join(" · ")}</p>` : ""}
+    ${items ? `<ol class="valid-review-list">${items}</ol>` : ""}`;
+  panel.hidden = false;
+  panel.querySelector("[data-close-review]").addEventListener("click", () => { panel.hidden = true; $("#valid-ai-review")?.focus(); });
+  panel.querySelectorAll("[data-show-quote]").forEach((b) => b.addEventListener("click", () => showInTemplate(issues[Number(b.dataset.showQuote)].quote)));
+}
+
+function setupReview() {
+  const tilt = $("#valid-tilt");
+  const button = $("#valid-ai-review");
+  if (!tilt || !button) return;
+  const panel = document.createElement("section");
+  panel.className = "valid-ai-review";
+  panel.id = "valid-tilt-review";
+  panel.setAttribute("aria-label", "What a student might ask");
+  panel.hidden = true;
+  const area = makeRunArea("valid-tilt-review-status", "valid-ai-review");
+  tilt.before(area, panel);
+  button.addEventListener("click", () => {
+    runHelper("review", area, {
+      prepare(kind) {
+        const { text } = clipText(sheetText(), kind === "browser" ? 6000 : 16000);
+        if (text.length < 80) return { message: "The template is nearly empty, so there's nothing to read yet." };
+        return { task: reviewTask(planContext(), text), label: "Reading your template as a student" };
+      },
+      apply(issues) {
+        renderReview(issues);
+        return { hide: true, announce: issues.length ? `Found ${issues.length} things a student might ask about.` : "Didn't find anything a student would get stuck on." };
+      }
+    });
+  });
+}
+
+/* ---------- 5. Make a version ---------- */
+
+// The template's paragraphs and list items, each with its bold label (like "Why:") set aside.
+function sheetBlocks(root) {
+  return [...root.querySelectorAll("p, li")].filter((node) => !node.querySelector("p, li") && node.innerText.trim()).map((node) => {
+    const first = node.firstElementChild;
+    const label = first && first.tagName === "STRONG" && node.innerText.trim().startsWith(first.innerText.trim()) ? first : null;
+    const text = node.innerText.trim().slice(label ? label.innerText.trim().length : 0).trim();
+    return { node, label, text };
+  });
+}
+
+function blankify(text) {
+  return esc(text).replace(/\[[^\]]+\]/g, (blank) => `<span class="valid-placeholder">${blank}</span>`);
+}
+
+let variantBefore = null;
+
+function setupVariants() {
+  const tilt = $("#valid-tilt");
+  const open = $("#valid-ai-variant-open");
+  const form = $("#valid-variant-form");
+  if (!tilt || !open || !form) return;
+  const kind = $("#valid-variant-kind");
+  const detail = $("#valid-variant-detail");
+  open.addEventListener("click", () => {
+    form.hidden = !form.hidden;
+    open.setAttribute("aria-expanded", String(!form.hidden));
+    if (!form.hidden) kind.focus();
+  });
+  kind.addEventListener("change", () => { $("#valid-variant-detail-label").hidden = kind.value !== "accommodation"; });
+
+  const panel = document.createElement("section");
+  panel.className = "valid-ai-variant";
+  panel.id = "valid-tilt-variant";
+  panel.hidden = true;
+  panel.innerHTML = `
+    <div class="valid-ai-note">${sparkle(16)}<span class="valid-ai-note-text"></span></div>
+    <div class="viz-row valid-variant-actions">
+      <button class="btn" type="button" data-variant-copy><span class="valid-copy-label">Copy as text</span></button>
+      <button class="btn" type="button" data-variant-use>Use as my template</button>
+      <button class="btn btn-ghost" type="button" data-variant-close>Close</button>
+    </div>
+    <article class="valid-tilt valid-tilt-variant" aria-label="Version of the assignment"></article>`;
+  const area = makeRunArea("valid-tilt-variant-status", "valid-ai-variant");
+  tilt.before(area, panel);
+  const article = panel.querySelector("article");
+  panel.querySelector("[data-variant-close]").addEventListener("click", () => { panel.hidden = true; open.focus(); });
+  panel.querySelector("[data-variant-copy]").addEventListener("click", async (event) => {
+    const label = event.currentTarget.querySelector(".valid-copy-label");
+    try { await navigator.clipboard.writeText(app.tiltAsText(article)); label.textContent = "Copied"; }
+    catch { label.textContent = "Select the text and copy it"; }
+    setTimeout(() => { label.textContent = "Copy as text"; }, 2200);
+  });
+  panel.querySelector("[data-variant-use]").addEventListener("click", () => {
+    if (!window.confirm("Replace your template with this version? You can undo it right after.")) return;
+    variantBefore = { html: tilt.innerHTML, edited: app.state.tiltEdited };
+    tilt.innerHTML = article.innerHTML;
+    tilt.dispatchEvent(new Event("input", { bubbles: true }));
+    panel.hidden = true;
+    setRunArea(area, {
+      kind: "done",
+      text: "Your template is now this version.",
+      actions: [{ label: "Undo", onClick: () => {
+        if (!variantBefore) return;
+        tilt.innerHTML = variantBefore.html;
+        if (variantBefore.edited) tilt.dispatchEvent(new Event("input", { bubbles: true }));
+        else $("#valid-reset-tilt")?.click();
+        variantBefore = null;
+        hideRunArea(area);
+        announce("Your template is back to how it was.");
+      } }, dismiss(area)]
+    });
+    announce("Your template is now this version.");
+  });
+
+  $("#valid-ai-variant").addEventListener("click", () => {
+    const variant = kind.value;
+    runHelper("variant", area, {
+      prepare() {
+        if (variant === "accommodation" && detail.value.trim().length < 4) return { message: "Describe the accommodation first, for example “a written explanation instead of a spoken defense.”" };
+        const blocks = sheetBlocks(tilt);
+        if (!blocks.length) return { message: "The template is empty, so there's nothing to adapt yet." };
+        return { task: variantTask(planContext(), blocks.map((b) => b.text), variant, detail.value), label: `Writing the ${VARIANTS[variant].label.toLowerCase()}`, variant };
+      },
+      apply(lines, job) {
+        const copy = tilt.cloneNode(true);
+        copy.removeAttribute("id");
+        sheetBlocks(copy).forEach((block, i) => {
+          if (lines[i] === undefined || lines[i] === block.text) return;
+          const label = block.label ? block.label.outerHTML + " " : "";
+          block.node.innerHTML = label + blankify(lines[i]);
+        });
+        copy.querySelectorAll(".is-ai").forEach((node) => { node.classList.remove("is-ai"); delete node.dataset.aiText; delete node.dataset.aiHint; delete node.dataset.ph; });
+        article.innerHTML = copy.innerHTML;
+        panel.querySelector(".valid-ai-note-text").textContent = `${VARIANTS[job.variant].label}, drafted by Local AI from your template. Your template hasn't changed. Check this version before you use it.`;
+        panel.hidden = false;
+        form.hidden = true;
+        open.setAttribute("aria-expanded", "false");
+        panel.querySelector("[data-variant-use]").focus();
+        return { hide: true, announce: `${VARIANTS[job.variant].label} is ready below the buttons.` };
+      }
+    });
+  });
 }
 
 /* ---------- 3. Tailor to my course ---------- */
@@ -1061,7 +1256,9 @@ function onReset() {
   cancelDownloadQuestion();
   const textarea = $("#valid-assignment-text");
   if (textarea) textarea.value = pastedText();
-  ["#valid-tilt-ai-status", "#valid-rubric-ai-status"].forEach((id) => { const area = $(id); if (area) hideRunArea(area); });
+  ["#valid-tilt-ai-status", "#valid-tilt-review-status", "#valid-tilt-variant-status", "#valid-rubric-ai-status"].forEach((id) => { const area = $(id); if (area) hideRunArea(area); });
+  ["#valid-tilt-review", "#valid-tilt-variant"].forEach((id) => { const panel = $(id); if (panel) panel.hidden = true; });
+  variantBefore = null;
   blanksBefore = null;
   blanksNoteExtra = "";
   rubricNoteExtra = "";
@@ -1084,6 +1281,8 @@ async function init() {
   buildDialog();
   setupIntake();
   setupBlanks();
+  setupReview();
+  setupVariants();
   setupTailor();
   app.root.addEventListener("valid:reset", onReset);
   applyAvailability();

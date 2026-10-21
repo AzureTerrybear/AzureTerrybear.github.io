@@ -55,6 +55,7 @@ These apply on every build:
 - **Saving.** Answers are saved in the browser. The design saved through its preview host, which doesn't exist on GitHub Pages.
 - **Start over** goes back to the five questions and keeps those answers, but clears the template, the rubric, and other changes to the plan, after asking. The design kept everything, so template and rubric edits from the old plan showed up in the new one.
 - **Inserting a suggestion** over text you typed asks first.
+- **An edited template is checked against the plan.** Plan changes don't update a template you've edited, so the template drawer now points out where they've drifted apart: the AIAS level, stages added or removed, AI rules that no longer match the AI role, and the AI-use statement. This uses plain comparisons, not AI.
 - **Links** to sources open in a new tab, so the tool stays open.
 - **The template** gains a "Why these rules" line, a blank for one sentence telling students why AI is limited or required. The design's guide recommends exactly that.
 - **The sparkle icon** is kept for AI features. "Build my plan" now has an arrow, and the "AI involvement" row has a robot icon.
@@ -75,11 +76,13 @@ This is the rubric import. The Canvas article on importing rubric *assessments* 
 
 ## The local AI helpers
 
-Three optional helpers, each in the place you'd already be working:
+Five optional helpers, each in the place you'd already be working:
 
 1. **Start from your current assignment** (start screen). Paste the assignment you give students now and select **Suggest answers from this**. The AI suggests answers to the five questions, and each suggestion shows the words from your text that support it. An answer is only filled in if those words really appear in your text; otherwise the question says your text doesn't make it clear. The pasted text also gives the other two helpers background about your course.
 2. **Draft the blanks** (Assignment template). Fills the title, the purpose, the task, each stage, the "Why these rules" line, and the course outcome if your pasted text states one. Each stage gets a `[due date]` blank for you. The AI-use statement blanks are left for students.
-3. **Tailor to my course** (Draft rubric). Rewrites the four descriptors of each criterion for your assignment. Criterion names and weights never change, and cells you've edited are left alone.
+3. **Read it like a student** (Assignment template). Lists up to six things a student would get stuck on or ask about: unclear or missing instructions, contradictions, and hard-to-read wording, each with a suggested fix and a **Show** button that points at the words in the template. A problem that quotes words not in the template is dropped. It also lists the blanks that are still empty.
+4. **Make a version** (Assignment template). Drafts a plain-language version, an online version, or a version with an accommodation you describe, next to your template. Your template doesn't change unless you select **Use as my template**, and **Undo** puts it back. Blanks in [brackets] are kept.
+5. **Tailor to my course** (Draft rubric). Rewrites the four descriptors of each criterion for your assignment. Criterion names and weights never change, and cells you've edited are left alone.
 
 How they behave:
 
@@ -126,7 +129,7 @@ In-browser mode downloads the WebLLM library from `cdn.jsdelivr.net` and the mod
 
 ## What was tested
 
-The site was run in headless Chromium with 129 automated checks, plus a check of every AI schema with xgrammar (the grammar engine WebLLM uses):
+The site was run in headless Chromium with 144 automated checks, plus a check of every AI schema with xgrammar (the grammar engine WebLLM uses):
 
 - the design's flow: start screen, plan, plan tabs, Change panels, wizard, drawers, worked examples
 - every fix above, including saving, reload, answers from the previous version, and Start over

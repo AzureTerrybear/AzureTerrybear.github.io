@@ -291,3 +291,128 @@ Rewrite the four descriptors of each criterion, in the same order, so they descr
     }
   };
 }
+
+/* ---------- 4. Read it like a student ---------- */
+
+// sheet: the assignment sheet as plain text.
+export function reviewTask(ctx, sheet) {
+  const schema = {
+    type: "object",
+    properties: {
+      issues: {
+        type: "array",
+        maxItems: 6,
+        items: {
+          type: "object",
+          properties: {
+            kind: { type: "string", enum: ["unclear", "missing", "conflict", "hard to read"] },
+            quote: { type: "string" },
+            question: { type: "string" },
+            fix: { type: "string" }
+          },
+          required: ["kind", "quote", "question", "fix"]
+        }
+      }
+    },
+    required: ["issues"]
+  };
+  const plan = planLines(ctx, ["subject", "delivery", "purpose", "aiRole", "aiasLevel"]);
+  const user = `Course context:
+${plan}
+
+Here is an assignment sheet a student will read:
+<<<
+${sheet}
+>>>
+
+Read it as a student seeing it for the first time. List up to 6 real problems a student would get stuck on or have to ask about:
+- "unclear": an instruction a student could read two ways
+- "missing": something a student needs but isn't there, such as length, format, or where and how to submit
+- "conflict": two parts that contradict each other, especially in the AI rules
+- "hard to read": wording that's long, dense, or full of jargon
+Ignore anything in [square brackets]: those are blanks the instructor will fill in, including due dates.
+For each problem give "quote": the exact words from the sheet it's about (or "" if something is missing), "question": the question a student would ask, in one sentence, and "fix": one sentence telling the instructor what to change.
+Only report real problems. If the sheet is clear, return {"issues": []}.`;
+
+  return {
+    messages: [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
+    schema,
+    maxTokens: 900,
+    expected: 900,
+    validate(out) {
+      if (!Array.isArray(out?.issues)) throw new Error("The model's answer was incomplete. Try again.");
+      return out.issues
+        .map((item) => ({
+          kind: ["unclear", "missing", "conflict", "hard to read"].includes(item?.kind) ? item.kind : "unclear",
+          quote: sentence(item?.quote, 200),
+          question: sentence(item?.question, 300),
+          fix: sentence(item?.fix, 300)
+        }))
+        // A quote has to come from the sheet; otherwise the problem is probably invented.
+        .filter((item) => item.question && (!item.quote || quoteSupported(item.quote, sheet)))
+        .slice(0, 6);
+    }
+  };
+}
+
+/* ---------- 5. Make a version ---------- */
+
+export const VARIANTS = {
+  plain: {
+    label: "Plain-language version",
+    ask: "Rewrite each line in plain language for students: short sentences, common words, about an eighth-grade reading level. Keep every requirement, number, and name."
+  },
+  online: {
+    label: "Online version",
+    ask: "Adapt each line for a fully online, asynchronous course: replace anything done in class or in person (in-class work, live conversations, observed tasks) with an online equivalent such as a recorded video, a timed online submission, or a discussion post. Lines that don't involve being in class stay exactly as they are."
+  },
+  accommodation: {
+    label: "Version with an accommodation",
+    ask: "Adapt each line for this accommodation: \"{detail}\". Change only what the accommodation affects; every other line stays exactly as it is."
+  }
+};
+
+const BRACKETS = /\[[^\]]+\]/g;
+
+// lines: the sheet's text, one entry per paragraph or list item (labels like "Why:" removed).
+export function variantTask(ctx, lines, variant, detail = "") {
+  const spec = VARIANTS[variant];
+  const schema = {
+    type: "object",
+    properties: { lines: { type: "array", items: { type: "string" }, minItems: lines.length, maxItems: lines.length } },
+    required: ["lines"]
+  };
+  const plan = planLines(ctx, ["subject", "delivery", "aiRole", "aiasLevel"]);
+  const ask = spec.ask.replace("{detail}", oneLine(detail).replace(/"/g, "'").slice(0, 200));
+  const user = `Course context:
+${plan}
+
+Here are the ${lines.length} lines of an assignment sheet written to students:
+${lines.map((line, i) => `${i + 1}. ${line}`).join("\n")}
+
+${ask}
+Return exactly ${lines.length} lines, in the same order, without the numbers. Keep anything in [square brackets] exactly as written. Don't add requirements, sources, tools, or dates.`;
+  const chars = lines.join(" ").length;
+
+  return {
+    messages: [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
+    schema,
+    maxTokens: Math.min(2200, Math.round(chars / 2.6) + 40 * lines.length + 100),
+    expected: chars + 20 * lines.length,
+    validate(out) {
+      const rows = out?.lines;
+      if (!Array.isArray(rows) || rows.length !== lines.length) throw new Error("The version came back with the wrong number of lines. Try again.");
+      let changed = 0;
+      const result = rows.map((row, i) => {
+        const text = oneLine(row).replace(/^\d+\.\s+/, "");
+        const keep = lines[i].match(BRACKETS) || [];
+        // Keep the original line if the rewrite is empty or lost one of its blanks.
+        if (!text || keep.some((blank) => !text.includes(blank))) return lines[i];
+        if (text !== lines[i]) changed += 1;
+        return clip(text, 900);
+      });
+      if (!changed) throw new Error("The model didn't change anything. Try again, or pick a larger model.");
+      return result;
+    }
+  };
+}

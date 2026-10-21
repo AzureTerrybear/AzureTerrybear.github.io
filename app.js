@@ -3549,6 +3549,8 @@
         wording: field => wording(field),
         rankedPatterns: () => patterns.map(pattern => ({ pattern, score: scorePattern(pattern) })).sort((a, b) => b.score - a.score).slice(0, 3),
         validRole: () => validRoles[suggestedValidRole()],
+        aiRules,
+        tiltAsText: node => tiltAsText(node),
         refreshRubric: () => { renderRubric(); renderRubricDependents(); },
         scheduleSave: () => scheduleSave(),
         saveNow: () => { clearTimeout(saveTimer); save(); }

@@ -178,5 +178,89 @@
     });
   }
 
-  window.validSite = { canvasRubricCSV };
+
+  /* ---------- Check an edited template against the current plan ---------- */
+
+  // Once the template is edited, plan changes no longer update it. These checks point
+  // out where the two have drifted apart. No AI: plain comparisons.
+  const norm = (value) => String(value ?? '').toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+  const LEVEL_NUMBER = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+
+  function planDifferences() {
+    const tilt = $('#valid-tilt');
+    if (!tilt || !app.state.tiltEdited) return [];
+    const text = tilt.innerText;
+    const flat = norm(text);
+    const found = [];
+
+    const level = app.resolvedAIAS();
+    const mentioned = [...text.matchAll(/AIAS\s*([1-5])/g)].map((m) => Number(m[1]));
+    if (mentioned.length && !mentioned.includes(LEVEL_NUMBER[level])) {
+      found.push(`The template says AIAS ${mentioned[0]}, but the plan is now ${app.labels.aiasLevel[level]}.`);
+    }
+
+    const planStages = app.wording('stages').replace(/\(.*?\)/g, '').split('→').map((stage) => stage.trim()).filter(Boolean).map(cap);
+    const sheetStages = [...tilt.querySelectorAll('ol > li > strong:first-child')].map((node) => node.textContent.replace(/[.:]\s*$/, '').trim());
+    if (sheetStages.length) {
+      const missing = planStages.filter((stage) => !sheetStages.some((s) => norm(s) === norm(stage)));
+      const extra = sheetStages.filter((stage) => !planStages.some((s) => norm(s) === norm(stage)));
+      if (missing.length) found.push(`The plan has stages the template doesn't: ${missing.join(', ')}.`);
+      if (extra.length) found.push(`The template has stages that aren't in the plan: ${extra.join(', ')}.`);
+    }
+
+    const rules = app.aiRules[app.state.aiRole];
+    if (rules) {
+      const items = [...rules.permitted, ...rules.prohibited, rules.required].filter(Boolean);
+      const absent = items.filter((item) => !flat.includes(norm(item)));
+      if (absent.length > items.length / 2) {
+        found.push(`The template's AI rules don't match the plan's AI role (${app.short.aiRole[app.state.aiRole]}). The plan's rules include: ${absent.slice(0, 3).map((item) => item.replace(/\.$/, '')).join('; ')}.`);
+      }
+    }
+
+    const statement = /AI-use statement/i.test(text);
+    if (app.state.aiRole === 'none' && /AI-use statement \(required\)/i.test(text)) {
+      found.push('The template asks for an AI-use statement, but the plan now excludes AI from the assessed work.');
+    } else if (app.state.aiRole !== 'none' && !statement) {
+      found.push('The plan uses AI, but the template no longer asks students for an AI-use statement.');
+    }
+    return found;
+  }
+
+  let dismissedFor = '';
+
+  function syncPlanCheck() {
+    const tilt = $('#valid-tilt');
+    if (!tilt) return;
+    let note = $('#valid-plan-check');
+    if (!note) {
+      note = document.createElement('div');
+      note.className = 'valid-plan-check';
+      note.id = 'valid-plan-check';
+      note.setAttribute('role', 'region');
+      note.setAttribute('aria-label', 'Differences from your plan');
+      note.hidden = true;
+      tilt.before(note);
+    }
+    const found = planDifferences();
+    const key = found.join('|');
+    if (!found.length || key === dismissedFor) { note.hidden = true; return; }
+    note.innerHTML = `<p><strong>Your template differs from your current plan in ${found.length} place${found.length === 1 ? '' : 's'}.</strong> Plan changes don't update an edited template. Edit these by hand, or use Reset to rebuild the template from the plan.</p>
+      <ul>${found.map((item) => `<li>${item.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))}</li>`).join('')}</ul>
+      <button class="btn btn-ghost" type="button">Dismiss</button>`;
+    note.querySelector('button').addEventListener('click', () => { dismissedFor = key; note.hidden = true; });
+    note.hidden = false;
+  }
+
+  const tiltNode = $('#valid-tilt');
+  if (tiltNode && drawer) {
+    let timer = 0;
+    const later = () => { clearTimeout(timer); timer = setTimeout(syncPlanCheck, 400); };
+    tiltNode.addEventListener('input', later);
+    new MutationObserver(() => { if (!drawer.hidden) syncPlanCheck(); }).observe(drawer, { attributes: true, attributeFilter: ['hidden'] });
+    root.addEventListener('valid:rubric-rendered', later);
+    root.addEventListener('valid:reset', () => { dismissedFor = ''; later(); });
+  }
+
+  window.validSite = { canvasRubricCSV, planDifferences };
 })();
