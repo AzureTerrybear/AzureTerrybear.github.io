@@ -506,6 +506,7 @@ async function runHelper(feature, area, { prepare, apply }) {
       raw = await generate(await getEngine(model, signal, progress));
     }
     if (signal.aborted) throw new DOMException("Stopped", "AbortError");
+    console.info(`[VALID-AI] ${feature} answer from ${modelName(model)}:`, raw);
     const report = apply(job.task.validate(raw), job);
     if (report.hide) hideRunArea(area);
     else setRunArea(area, { kind: "done", text: report.text, actions: [dismiss(area)] });
@@ -591,8 +592,8 @@ function intakeQuestions() {
     .filter(([value]) => !skip.includes(value))
     .map(([value, label]) => ({ value, label, hint: hints[value] || "" }));
   return [
-    { key: "context", name: "subject", ask: "the subject area of the course", options: options(app.contextLabels) },
-    { key: "outcome", name: "skill", ask: "the main thing students must show", options: options(app.short.outcome, SKILL_HINTS) },
+    { key: "context", name: "subject", ask: "the subject area of the course", options: options(app.contextLabels), infer: true },
+    { key: "outcome", name: "skill", ask: "the main thing students must show", options: options(app.short.outcome, SKILL_HINTS), infer: true },
     { key: "purposeType", name: "purpose", ask: "whether the work is practice or graded", options: options(app.short.purposeType, PURPOSE_HINTS) },
     { key: "delivery", name: "delivery", ask: "how the course is delivered", options: options(app.short.delivery, DELIVERY_HINTS) },
     { key: "independent", name: "independent", ask: "whether students must show they can do this without AI", options: options(app.short.independent, INDEPENDENT_HINTS, ["unsure"]) }
@@ -676,13 +677,13 @@ function setupIntake() {
           const select = startSelect(q.key);
           if (!select || select.value !== startValues[q.key]) return; // changed by hand during the run
           const item = result[q.key];
-          if (item.status === "found") {
+          if (item.status === "found" || item.status === "inferred") {
             if (select.value !== item.value) {
               select.value = item.value;
               applyingSuggestion = true;
               try { select.dispatchEvent(new Event("change", { bubbles: true })); } finally { applyingSuggestion = false; }
             }
-            addSuggestion(q.key, `Suggested from your text: “${item.quote}”`, false);
+            addSuggestion(q.key, item.status === "found" ? `Suggested from your text: “${item.quote}”` : "Suggested from what your assignment is about. Check it.", false);
             suggested += 1;
           } else {
             addSuggestion(q.key, item.status === "unverified" ? "Not clear from your text. Pick one if you know." : "Your text doesn’t say. Pick one if you know.", true);
@@ -690,7 +691,7 @@ function setupIntake() {
         });
         const tail = job.clipped ? " Only the first part of your text was read." : "";
         const text = suggested
-          ? `Suggested ${suggested} of ${job.questions.length} answers, each with the words from your text that support it. Check them before you build your plan.${tail}`
+          ? `Suggested ${suggested} of ${job.questions.length} answers. The note under each question says what it's based on, so check them before you build your plan.${tail}`
           : `Your text didn’t clearly answer the five questions, so nothing was changed. Pick the answers yourself.${tail}`;
         return { text };
       }

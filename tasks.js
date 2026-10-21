@@ -97,25 +97,43 @@ function planLines(ctx, keys) {
 
 /* ---------- 1. Start from your assignment ---------- */
 
-// questions: [{ key, name, ask, options: [{ value, label, hint }] }]
+const STOPWORDS = new Set(["that", "this", "with", "from", "they", "their", "them", "then", "than", "will", "your",
+  "into", "each", "have", "about", "which", "what", "when", "were", "been", "also", "such", "some", "more", "students", "student"]);
+
+// Small models often trim or reword a quote slightly. Accept it when it appears in the text,
+// or when most of its content words do.
+export function quoteSupported(quote, source) {
+  if (quoteFound(quote, source)) return true;
+  const haystack = normalize(source);
+  const words = normalize(quote).replace(/[^a-z0-9' -]/g, " ").split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOPWORDS.has(w));
+  if (words.length < 2) return false;
+  const present = words.filter((w) => haystack.includes(w.replace(/(es|s|ed|ing)$/, ""))).length;
+  return present / words.length >= 0.75;
+}
+
+// questions: [{ key, name, ask, options: [{ value, label, hint }], infer }]
+// "infer" questions (subject, skill) can be judged from what the assignment is about, so they
+// always get an answer; the others need the text to say so, or the answer is "Not stated".
 export function intakeTask(text, questions) {
   const properties = {};
   questions.forEach((q) => {
+    const labels = q.options.map((o) => o.label);
     properties[q.name] = {
       type: "object",
       properties: {
-        quote: { type: "string" },
-        answer: { type: "string", enum: [...q.options.map((o) => o.label), NOT_STATED] }
+        answer: { type: "string", enum: q.infer ? labels : [...labels, NOT_STATED] },
+        quote: { type: "string" }
       },
-      required: ["quote", "answer"]
+      required: ["answer", "quote"]
     };
   });
   const schema = { type: "object", properties, required: questions.map((q) => q.name) };
 
   const listing = questions.map((q) => [
-    `${q.name}: ${q.ask}`,
+    `${q.name}: ${q.ask}${q.infer ? " (always pick the closest option, judging from what the assignment is about)" : ` (use "${NOT_STATED}" if the text doesn't say)`}`,
     ...q.options.map((o) => `  "${o.label}"${o.hint ? ` — ${o.hint}` : ""}`),
-    `  "${NOT_STATED}"`
+    ...(q.infer ? [] : [`  "${NOT_STATED}"`])
   ].join("\n")).join("\n\n");
 
   const user = `Here is an assignment an instructor gives students now:
@@ -123,9 +141,8 @@ export function intakeTask(text, questions) {
 ${text}
 >>>
 
-Answer ${questions.length} questions about this assignment, using only what the text says.
-For each question, first give "quote": a short phrase of 3 to 15 words copied exactly from the text that shows the answer. Then give "answer": one of the options listed for that question, written exactly as it appears inside the quotation marks.
-If the text does not make the answer clear, give "" as the quote and "${NOT_STATED}" as the answer. Don't guess.
+Answer ${questions.length} questions about this assignment.
+For each question, give "answer": one of the options listed for that question, written exactly as it appears inside the quotation marks. Then give "quote": the words from the assignment text that best support your answer, copied exactly (a few words is enough). If the answer is "${NOT_STATED}", the quote is "".
 
 ${listing}`;
 
@@ -133,7 +150,7 @@ ${listing}`;
     messages: [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
     schema,
     maxTokens: 500,
-    expected: 520,
+    expected: 480,
     validate(out) {
       const result = {};
       questions.forEach((q) => {
@@ -142,8 +159,9 @@ ${listing}`;
         const option = q.options.find((o) => o.label.toLowerCase() === answer);
         const quote = oneLine(item.quote).replace(/^["'“”‘’]+|["'“”‘’]+$/g, "");
         if (!option) result[q.key] = { status: "unstated" };
-        else if (!quoteFound(quote, text)) result[q.key] = { status: "unverified", value: option.value };
-        else result[q.key] = { status: "found", value: option.value, quote: clip(quote, 140) };
+        else if (quote && quoteSupported(quote, text)) result[q.key] = { status: "found", value: option.value, quote: clip(quote, 140) };
+        else if (q.infer) result[q.key] = { status: "inferred", value: option.value };
+        else result[q.key] = { status: "unverified", value: option.value };
       });
       return result;
     }
