@@ -86,6 +86,11 @@ const announce = (text) => {
   if (node) node.textContent = text;
 };
 
+// Errors that mean the in-browser engine's internal state is broken and needs a reload.
+function isStaleEngine(err) {
+  return /deleted object|BindingError|GrammarMatcher|already been disposed|disposed/i.test(String(err?.message ?? err) + String(err?.name ?? ""));
+}
+
 function isFatal(err) {
   return /out of memory|OOM|device (was )?lost|DeviceLost|GPUDevice|allocate/i.test(String(err?.message ?? err));
 }
@@ -484,11 +489,22 @@ async function runHelper(feature, area, { prepare, apply }) {
     if (signal.aborted) throw new DOMException("Stopped", "AbortError");
     announce(`${job.label}.`);
     progress(0.02, label);
-    const raw = await engine.generate(job.task.messages, job.task.schema, {
+    const generate = (eng) => eng.generate(job.task.messages, job.task.schema, {
       maxTokens: job.task.maxTokens,
       signal,
       onProgress: (chars) => progress(Math.min(0.97, 0.02 + chars / job.task.expected), label)
     });
+    let raw;
+    try {
+      raw = await generate(engine);
+    } catch (err) {
+      // WebLLM can lose its JSON grammar state between requests ("Cannot pass deleted object as a
+      // pointer of type GrammarMatcher"). Reloading the model from the browser's storage fixes it.
+      if (model.kind !== "browser" || signal.aborted || !isStaleEngine(err)) throw err;
+      progress(0.02, `Restarting ${model.label}…`);
+      await disposeEngine();
+      raw = await generate(await getEngine(model, signal, progress));
+    }
     if (signal.aborted) throw new DOMException("Stopped", "AbortError");
     const report = apply(job.task.validate(raw), job);
     if (report.hide) hideRunArea(area);

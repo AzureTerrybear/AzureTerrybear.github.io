@@ -88,6 +88,7 @@ How they behave:
 - AI text never replaces your own edits.
 - **Undo** removes the AI text you haven't edited. If you hadn't changed anything else, the template goes back to following your plan.
 - **Stop** cancels a run and changes nothing.
+- If the in-browser engine loses its internal state between runs (WebLLM can report "Cannot pass deleted object as a pointer of type GrammarMatcher"), the helper reloads the model from the browser's storage and tries once more.
 - If your plan changes after tailoring the rubric, the rubric's note says so.
 - Every answer is forced into a JSON schema, so it always fits the page. The AI never sets the rubric's criteria or weights, the AIAS level, the recommended approach, or the research.
 
@@ -125,7 +126,7 @@ In-browser mode downloads the WebLLM library from `cdn.jsdelivr.net` and the mod
 
 ## What was tested
 
-The site was run in headless Chromium with 128 automated checks, plus a check of every AI schema with xgrammar (the grammar engine WebLLM uses):
+The site was run in headless Chromium with 129 automated checks, plus a check of every AI schema with xgrammar (the grammar engine WebLLM uses):
 
 - the design's flow: start screen, plan, plan tabs, Change panels, wizard, drawers, worked examples
 - every fix above, including saving, reload, answers from the previous version, and Start over
