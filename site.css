@@ -1,0 +1,632 @@
+/* Site additions to the design (the design itself is styles.css, generated from the design file):
+   the page background, the Canvas export, and the local AI helpers.
+   AI elements use IU blue (--teal in the design) so they read differently from the crimson controls,
+   and the sparkle icon appears only on AI controls. */
+
+/* ---------- Page ---------- */
+
+/* The design is light only. base.css sets the page background with !important. */
+html:root {
+  color-scheme: light;
+  background-color: #F7F7F7 !important;
+}
+
+/* Hidden means hidden, even for elements given a display value below. */
+#valid-ai-designer [hidden] {
+  display: none !important;
+}
+
+/* On phones the results header's buttons wrap instead of running off the screen. */
+@media (max-width: 560px) {
+  #valid-ai-designer .valid-results-header .viz-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* The plan summary keeps its look with valid list markup: app.js puts each row's
+   Change button and panel inside the <dd>, and the <dd> stays out of the grid. */
+#valid-ai-designer .valid-glance-row dd {
+  display: contents;
+}
+
+#valid-ai-designer .valid-glance-text {
+  display: block;
+  min-width: 0;
+}
+
+/* ---------- Canvas export ---------- */
+
+#valid-ai-designer .valid-canvas {
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+#valid-ai-designer .valid-canvas h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: var(--font-size-normal);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+#valid-ai-designer .valid-canvas-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 3px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+#valid-ai-designer .valid-canvas > p {
+  margin: 0;
+}
+
+#valid-ai-designer .valid-canvas-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem auto;
+  gap: 0.6rem;
+  align-items: end;
+  margin-top: 0.7rem;
+}
+
+#valid-ai-designer .valid-canvas-fields .form-label {
+  margin: 0;
+  font-weight: 500;
+}
+
+#valid-ai-designer .valid-canvas-fields .form-control {
+  min-height: 34px;
+  margin-top: 0.25rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+#valid-ai-designer .valid-canvas-fields .btn {
+  min-height: 34px;
+}
+
+#valid-ai-designer .valid-canvas-warn {
+  margin: 0.6rem 0 0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 4px;
+  background: var(--amber-soft);
+  color: var(--ink);
+}
+
+#valid-ai-designer .valid-canvas-status:empty {
+  display: none;
+}
+
+#valid-ai-designer .valid-canvas-status {
+  margin: 0.5rem 0 0;
+  color: var(--ink-soft);
+}
+
+#valid-ai-designer .valid-canvas-help {
+  margin-top: 0.7rem;
+}
+
+#valid-ai-designer .valid-canvas-help ol {
+  margin: 0.5rem 0 0.4rem;
+  padding-left: 1.3rem;
+}
+
+#valid-ai-designer .valid-canvas-help p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  #valid-ai-designer .valid-canvas-fields {
+    grid-template-columns: minmax(0, 1fr) 6.5rem;
+  }
+
+  #valid-ai-designer .valid-canvas-fields .btn {
+    grid-column: 1 / -1;
+    inline-size: 100%;
+  }
+}
+
+/* ---------- Local AI: shared ---------- */
+
+/* The helpers appear only when this device can run a model (or Ollama is connected). */
+html:not(.has-local-ai) #valid-ai-designer .valid-ai-only {
+  display: none !important;
+}
+
+#valid-ai-designer .valid-ai-icon {
+  flex: none;
+}
+
+#valid-ai-designer .btn.valid-ai-btn:not(.btn-primary):not(.btn-ghost) {
+  border-color: var(--teal);
+  background: var(--surface);
+  color: var(--teal);
+  font-weight: 600;
+}
+
+#valid-ai-designer .btn.valid-ai-btn:not(.btn-primary):not(.btn-ghost):not(:disabled):hover {
+  background: var(--teal-soft);
+}
+
+#valid-ai-designer .btn.valid-ai-btn:focus-visible,
+#valid-ai-designer .valid-ai-chip:focus-visible,
+#valid-ai-designer .valid-ai-note .btn:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* Text the AI wrote, until someone edits it. */
+#valid-ai-designer .valid-tilt .valid-placeholder.is-filled.is-ai,
+#valid-ai-designer .valid-edit-cell.is-ai {
+  background: var(--teal-soft);
+  text-decoration: underline dotted var(--teal);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.22em;
+}
+
+#valid-ai-designer .valid-tilt [data-ai-added] {
+  white-space: nowrap;
+}
+
+#valid-ai-designer .valid-tilt .valid-placeholder.is-filled.is-ai {
+  padding: 0 0.15rem;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+#valid-ai-designer .valid-edit-cell.is-ai:hover {
+  background: color-mix(in srgb, var(--teal) 16%, var(--surface));
+}
+
+#valid-ai-designer .valid-edit-cell.is-ai:focus {
+  background: var(--surface);
+}
+
+/* The "AI" tag is generated content, so it's never copied or exported with the text. */
+#valid-ai-designer .is-ai::after {
+  content: "AI";
+  content: "AI" / "AI draft";
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  text-transform: none;
+  vertical-align: 0.15em;
+  user-select: none;
+}
+
+/* Notes about AI text: what was drafted, and Undo. */
+#valid-ai-designer .valid-ai-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0 0 0.7rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid var(--teal);
+  border-radius: 4px;
+  background: var(--teal-soft);
+  color: var(--ink);
+  font-size: var(--font-size-small);
+  line-height: 1.45;
+}
+
+#valid-ai-designer .valid-ai-note > .valid-ai-icon {
+  margin-top: 0.15em;
+  color: var(--teal);
+}
+
+#valid-ai-designer .valid-ai-note {
+  flex-wrap: wrap;
+}
+
+#valid-ai-designer .valid-ai-note-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+#valid-ai-designer .valid-ai-note .btn {
+  flex: none;
+  min-height: 26px;
+  border-color: var(--teal);
+  background: var(--surface);
+  color: var(--teal);
+  font-weight: 600;
+}
+
+#valid-ai-designer .valid-ai-note .btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--teal) 10%, var(--surface));
+}
+
+/* Progress while a model loads or writes. */
+#valid-ai-designer .valid-ai-run {
+  margin: 0 0 0.7rem;
+  padding: 0.55rem 0.75rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: var(--font-size-small);
+  color: var(--ink);
+}
+
+#valid-ai-designer .valid-ai-run-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.8rem;
+}
+
+#valid-ai-designer .valid-ai-run-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+#valid-ai-designer .valid-ai-run .btn {
+  min-height: 26px;
+}
+
+#valid-ai-designer .valid-ai-bar {
+  height: 4px;
+  margin-top: 0.45rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  overflow: hidden;
+}
+
+#valid-ai-designer .valid-ai-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--teal);
+  transition: width 0.25s ease;
+}
+
+#valid-ai-designer .valid-ai-run.is-error {
+  border-color: #E8B4AE;
+  background: #FDF1EF;
+}
+
+#valid-ai-designer .valid-ai-run.is-error .valid-ai-bar,
+#valid-ai-designer .valid-ai-run.is-done .valid-ai-bar {
+  display: none;
+}
+
+#valid-ai-designer .valid-ai-run ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+}
+
+/* ---------- Local AI: status chip in the header ---------- */
+
+#valid-ai-designer .valid-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+  margin-left: auto;
+  min-height: 30px;
+  padding: 0 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font: inherit;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#valid-ai-designer .valid-ai-chip:hover {
+  background: color-mix(in srgb, var(--teal) 16%, var(--surface));
+}
+
+#valid-ai-designer .valid-ai-chip-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #7A8794;
+}
+
+#valid-ai-designer .valid-ai-chip-detail::before {
+  content: "·";
+  content: "·" / "";
+  margin-right: 0.4rem;
+}
+
+/* The template and rubric toolbars gain an AI button, so let them wrap on narrow screens. */
+#valid-ai-designer #valid-panel-sheet .viz-row > .viz-row,
+#valid-ai-designer #valid-rubric-output .viz-row > .viz-row {
+  flex-wrap: wrap !important;
+  justify-content: flex-end;
+}
+
+#valid-ai-designer .valid-ai-chip[data-state="loaded"] .valid-ai-chip-dot {
+  background: #1A7F45;
+}
+
+#valid-ai-designer .valid-ai-chip:is([data-state="loading"], [data-state="busy"]) .valid-ai-chip-dot {
+  background: var(--teal);
+  animation: valid-ai-pulse 1.2s ease-in-out infinite;
+}
+
+#valid-ai-designer .valid-ai-chip[data-state="off"] {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+@keyframes valid-ai-pulse {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #valid-ai-designer .valid-ai-chip-dot { animation: none !important; }
+  #valid-ai-designer .valid-ai-bar > span { transition: none; }
+}
+
+/* On phones the chip gets its own line under the title, so the title keeps its width. */
+@media (max-width: 560px) {
+  #valid-ai-designer .valid-title-row {
+    flex-wrap: wrap;
+    row-gap: 0.6rem;
+  }
+
+  /* A full-width spacer ends the title's line, so the chip starts a new one. */
+  #valid-ai-designer .valid-title-row::after {
+    content: "";
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  #valid-ai-designer .valid-title-row h1 {
+    flex: 1 1 0%;
+  }
+
+  #valid-ai-designer .valid-ai-chip {
+    order: 3;
+    margin-left: 0;
+  }
+}
+
+/* ---------- Local AI: start from your assignment ---------- */
+
+#valid-ai-designer .valid-intake {
+  margin: 0.9rem 0 0.1rem;
+  padding: 0.8rem 1rem 0.9rem;
+  border: 1px dashed var(--teal);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+#valid-ai-designer .valid-intake .form-label {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+#valid-ai-designer .valid-optional {
+  margin-left: 0.45rem;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#valid-ai-designer .valid-intake-help {
+  margin: 0.15rem 0 0.5rem;
+  color: var(--ink-soft);
+}
+
+#valid-ai-designer .valid-intake textarea.form-control {
+  min-height: 5.5rem;
+  padding: 0.5rem 0.6rem;
+  resize: vertical;
+}
+
+#valid-ai-designer .valid-intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin-top: 0.6rem;
+}
+
+#valid-ai-designer .valid-intake-actions .text-small {
+  color: var(--ink-soft);
+}
+
+#valid-ai-designer .valid-intake .valid-ai-run {
+  margin: 0.6rem 0 0;
+}
+
+/* "Suggested from your text" under each starting question. */
+#valid-ai-designer .valid-ai-suggest {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  color: var(--teal);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+}
+
+#valid-ai-designer .valid-ai-suggest .valid-ai-icon {
+  margin-top: 0.1em;
+}
+
+#valid-ai-designer .valid-ai-suggest.is-unsure {
+  color: var(--amber);
+}
+
+/* ---------- Local AI: settings dialog ---------- */
+
+#valid-ai-designer .valid-ai-dialog {
+  width: min(calc(100% - 2rem), 36rem);
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 0;
+  border-top: 4px solid var(--teal);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  box-shadow: 0 20px 50px rgb(29 34 51 / 30%);
+}
+
+#valid-ai-designer .valid-ai-dialog::backdrop {
+  background: rgb(29 34 51 / 45%);
+}
+
+#valid-ai-designer .valid-ai-dialog-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+#valid-ai-designer .valid-ai-dialog-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: var(--font-size-h3);
+}
+
+#valid-ai-designer .valid-ai-dialog-head h2 .valid-ai-icon {
+  color: var(--teal);
+}
+
+#valid-ai-designer .valid-ai-dialog-body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+#valid-ai-designer .valid-ai-dialog-body > p {
+  margin: 0 0 0.6rem;
+}
+
+#valid-ai-designer .valid-ai-uses {
+  margin: 0 0 0.8rem;
+  padding-left: 1.2rem;
+}
+
+#valid-ai-designer .valid-ai-uses li + li {
+  margin-top: 0.25rem;
+}
+
+#valid-ai-designer .valid-ai-section {
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+#valid-ai-designer .valid-ai-section h3 {
+  margin: 0 0 0.4rem;
+  font-size: var(--font-size-normal);
+  font-weight: 700;
+}
+
+#valid-ai-designer .valid-ai-section p {
+  margin: 0.4rem 0 0;
+}
+
+#valid-ai-designer .valid-ai-section .form-select {
+  max-width: none;
+  margin-top: 0.3rem;
+}
+
+#valid-ai-designer .valid-ai-section details {
+  margin-top: 0.5rem;
+}
+
+#valid-ai-designer .valid-ai-section ol {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+#valid-ai-designer .valid-ai-section code {
+  padding: 0 0.25rem;
+  border-radius: 3px;
+  background: var(--muted);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+#valid-ai-designer .valid-ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-weight: 500;
+}
+
+#valid-ai-designer .valid-ai-toggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--teal);
+}
+
+#valid-ai-designer .valid-ai-dialog-status:empty {
+  display: none;
+}
+
+/* ---------- High contrast and print ---------- */
+
+@media (forced-colors: active) {
+  #valid-ai-designer .is-ai::after {
+    border-color: CanvasText;
+  }
+
+  #valid-ai-designer .valid-ai-note,
+  #valid-ai-designer .valid-ai-chip {
+    border: 1px solid CanvasText;
+  }
+}
+
+@media print {
+  #valid-ai-designer .valid-ai-chip,
+  #valid-ai-designer .valid-ai-btn,
+  #valid-ai-designer .valid-ai-note,
+  #valid-ai-designer .valid-ai-run,
+  #valid-ai-designer .valid-intake,
+  #valid-ai-designer .valid-ai-suggest,
+  #valid-ai-designer .valid-canvas,
+  #valid-ai-designer .valid-ai-dialog {
+    display: none !important;
+  }
+
+  #valid-ai-designer .is-ai {
+    background: none !important;
+    text-decoration: none !important;
+  }
+
+  #valid-ai-designer .is-ai::after {
+    content: none !important;
+  }
+}
